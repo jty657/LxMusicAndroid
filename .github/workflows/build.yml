@@ -24,9 +24,10 @@ jobs:
           packages: 'platforms;android-36 build-tools;36.0.0'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.6'
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-9.6-bin.zip
+          unzip -q gradle-9.6-bin.zip -d $HOME
+          echo "$HOME/gradle-9.6/bin" >> $GITHUB_PATH
 
       - name: Create local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > local.properties
