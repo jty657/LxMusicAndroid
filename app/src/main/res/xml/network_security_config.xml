@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">search.kuwo.cn</domain>
+        <domain includeSubdomains="true">songsearch.kugou.com</domain>
+        <domain includeSubdomains="true">interface.music.163.com</domain>
+        <domain includeSubdomains="true">u.y.qq.com</domain>
+        <domain includeSubdomains="true">jadeite.migu.cn</domain>
+    </domain-config>
+</network-security-config>

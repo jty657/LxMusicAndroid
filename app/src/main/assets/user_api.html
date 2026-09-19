@@ -1,0 +1,76 @@
+<!doctype html><meta charset="utf-8"><title>lx sandbox</title>
+<script>
+(function(){
+  const pending = new Map();
+  const handlers = Object.create(null);
+  function safeJson(v){ try{return JSON.stringify(v===undefined?null:v);}catch(_){return 'null';} }
+  function callNative(name, ...args){
+    try { return window.Native[name](...args); } catch(e){ throw new Error(String(e&&e.message||e)); }
+  }
+  function Buf(b64){ this._b64 = b64 || ''; this.length = Math.floor(this._b64.length * 3 / 4); }
+  Buf.prototype.toString=function(enc){ enc=(enc||'utf8').toLowerCase(); return callNative('bufToString',this._b64,enc); };
+  Buf.prototype.toJSON=function(){ return {type:'Buffer',data:Array.from(atob(this._b64),c=>c.charCodeAt(0))}; };
+  Buf.from=function(v,enc){
+    if(v instanceof Buf)return v;
+    if(Array.isArray(v)) { const s=String.fromCharCode(...v.map(x=>x&255)); return new Buf(btoa(s)); }
+    if(typeof v==='string' && enc==='base64') return new Buf(v);
+    return new Buf(callNative('bufferFromString',String(v??''),enc||'utf8'));
+  };
+  globalThis.Buffer=Buf;
+
+  const lx = {
+    version:'2.0.0', env:'android', currentScriptInfo:{},
+    EVENT_NAMES:{request:'request', inited:'inited', updateAlert:'updateAlert'},
+    _handlers:handlers,
+    send:function(eventName,data){ callNative('post',safeJson({t:'send',eventName,data})); },
+    on:function(eventName,handler){ handlers[eventName]=handler; },
+    request:function(url,options,callback){
+      const id='rq_'+Math.random().toString(36).slice(2);
+      pending.set(id,callback);
+      callNative('request',id,String(url),safeJson(options||{}));
+      return function(){ pending.delete(id); callNative('cancel',id); };
+    },
+    utils:{
+      crypto:{
+        md5:function(s){return callNative('md5',String(s));},
+        sha1:function(s){return callNative('sha1',String(s));},
+        randomBytes:function(n){return new Buf(callNative('randomBytes',String(Math.max(0,n|0))));},
+        aesEncrypt:function(buf,mode,key,iv){return new Buf(callNative('aesEncrypt',buf instanceof Buf?buf._b64:String(buf),String(mode),key instanceof Buf?'@b64:'+key._b64:'@str:'+String(key),iv instanceof Buf?'@b64:'+iv._b64:'@str:'+String(iv||'')));},
+        rsaEncrypt:function(buf,key){return new Buf(callNative('rsaEncrypt',buf instanceof Buf?buf._b64:String(buf),String(key)));}
+      },
+      buffer:{
+        from:function(){return Buf.from.apply(null,arguments);},
+        bufToString:function(buf,format){return callNative('bufToString',buf instanceof Buf?buf._b64:String(buf),String(format||'utf8'));}
+      },
+      zlib:{
+        inflate:function(buf){return new Buf(callNative('zlibInflate',buf instanceof Buf?buf._b64:String(buf)));},
+        deflate:function(buf){return new Buf(callNative('zlibDeflate',buf instanceof Buf?buf._b64:String(buf)));}
+      }
+    }
+  };
+  globalThis.lx=lx;
+
+  globalThis.__requestResponse=function(id,err,resp,body){
+    const cb=pending.get(id); pending.delete(id); if(!cb)return;
+    let b=body; if(typeof body==='string'){ try{b=JSON.parse(body);}catch(_){} }
+    if(resp && typeof resp.raw==='string') resp.raw=new Buf(resp.raw);
+    try{cb(err?{message:String(err)}:null,resp,b);}catch(e){callNative('post',safeJson({t:'scriptError',error:String(e&&e.message||e)}));}
+  };
+  globalThis.__dispatchRequest=function(id,data){
+    const fn=handlers.request;
+    if(typeof fn!=='function'){callNative('post',safeJson({t:'response',id,error:'request handler not registered'}));return;}
+    Promise.resolve().then(()=>fn(data)).then(result=>{
+      if(typeof result!=='string') throw new Error('musicUrl handler must return string');
+      callNative('post',safeJson({t:'response',id,result}));
+    }).catch(e=>callNative('post',safeJson({t:'response',id,error:String(e&&e.message||e)})));
+  };
+  globalThis.__loadUserScript=function(b64,meta){
+    try{
+      const raw=decodeURIComponent(escape(atob(b64)));
+      lx.currentScriptInfo=meta||{}; lx.currentScriptInfo.rawScript=raw;
+      (0,eval)(raw);
+      callNative('post',safeJson({t:'loaded'}));
+    }catch(e){callNative('post',safeJson({t:'scriptError',error:String(e&&e.stack||e)}));}
+  };
+})();
+</script>
