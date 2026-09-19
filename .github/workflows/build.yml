@@ -25,9 +25,9 @@ jobs:
 
       - name: Setup Gradle
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-9.6-bin.zip
-          unzip -q gradle-9.6-bin.zip -d $HOME
-          echo "$HOME/gradle-9.6/bin" >> $GITHUB_PATH
+          wget -q https://services.gradle.org/distributions/gradle-9.6.0-bin.zip
+          unzip -q gradle-9.6.0-bin.zip -d $HOME
+          echo "$HOME/gradle-9.6.0/bin" >> $GITHUB_PATH
 
       - name: Create local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > local.properties
